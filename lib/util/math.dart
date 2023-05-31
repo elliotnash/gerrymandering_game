@@ -1,0 +1,1 @@
+T sum<T extends num>(T a, T b) => a + b as T;

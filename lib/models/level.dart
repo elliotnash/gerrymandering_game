@@ -22,21 +22,17 @@ class Level with _$Level {
   const factory Level({
     required List<Tile> tiles,
     required List<City> cities,
+    required Party party,
+    required int difficulty
   }) = _Level;
 
   int get population => tiles.map((e) => e.population).reduce(sum);
   int get democrats => tiles.map((e) => e.democrats).reduce(sum);
   int get republicans => tiles.map((e) => e.republicans).reduce(sum);
 
-  factory Level.generateDifficulty(Party party, int difficulty) {
-    var base = party == Party.democrat ? 9 : 1;
-    var cities = base - (difficulty*2);
-    return Level.generate(
-      bigCities: cities
-    );
-  }
-
-  factory Level.generate({int bigCities = 5, int smallCities = 40}) {
+  factory Level.generate([Party party = Party.democrat, int difficulty = 2]) {
+    final int bigCities = (party == Party.democrat ? 9 : 1) - (difficulty*2);
+    const int smallCities = 40;
     final cities = [
       for (var i = 0; i < bigCities; i++)
         City(Vector2(_rand.nextDouble()*kMapWidth, _rand.nextDouble()*kMapHeight), _rand.nextDouble()*0.5+0.5),
@@ -76,7 +72,7 @@ class Level with _$Level {
           generateTile(x, y)
     ];
 
-    return Level(tiles: tiles, cities: cities);
+    return Level(tiles: tiles, cities: cities, party: party, difficulty: difficulty);
   }
 
   factory Level.fromJson(Map<String, dynamic> json)

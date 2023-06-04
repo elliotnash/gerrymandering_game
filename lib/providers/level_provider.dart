@@ -11,6 +11,6 @@ class CurrentLevel extends _$CurrentLevel {
     return Level.generate();
   }
   void generate(Party party, int difficulty) {
-    state = Level.generateDifficulty(party, difficulty);
+    state = Level.generate(party, difficulty);
   }
 }

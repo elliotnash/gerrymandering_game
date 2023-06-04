@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:gerrymandering_game/const.dart';
 import 'package:gerrymandering_game/models/level.dart';
+import 'package:gerrymandering_game/models/party.dart';
 import 'package:gerrymandering_game/providers/level_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:vector_math/vector_math.dart' as v;
@@ -66,19 +67,25 @@ class Map extends StatefulWidget {
 class _MapState extends State<StatefulWidget> {
   @override
   Widget build(BuildContext context) {
-    // return CustomPaint(painter: MapPainter());
-    return LayoutBuilder(
-      // Inner yellow container
-      builder: (_, constraints) => Container(
-        width: constraints.widthConstraints().maxWidth,
-        height: constraints.heightConstraints().maxHeight,
-        color: Colors.black,
-        child: Consumer(
-          builder: (context, ref, _) { 
-            return LevelWidget(ref.watch(currentLevelProvider));
-          },
-        )
-      ),
+    return Consumer(
+      builder: (context, ref, _) {
+        return SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Expanded(child: LevelWidget(ref.watch(currentLevelProvider))),
+              MaterialButton(
+                onPressed: () {
+                  ref.read(currentLevelProvider.notifier).generate(Party.democrat, 2);
+                },
+                child: Text("HI"),
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -89,7 +96,27 @@ class LevelWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: MapPainter(level));
+    return LayoutBuilder(
+      // Inner yellow container
+      builder: (_, constraints) {
+        final widthC = constraints.maxWidth / kMapWidth;
+        final heightC = constraints.maxHeight / kMapHeight;
+        final c = min(widthC, heightC);
+        final width = c*kMapWidth;
+        final height = c*kMapHeight;
+
+        return SizedBox(
+          width: width,
+          height: height,
+          child: Center(
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: MapPainter(level),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

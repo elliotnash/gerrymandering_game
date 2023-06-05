@@ -1,9 +1,11 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:gerrymandering_game/const.dart';
 import 'package:gerrymandering_game/models/level.dart';
 import 'package:gerrymandering_game/models/party.dart';
+import 'package:gerrymandering_game/providers/district_provider.dart';
 import 'package:gerrymandering_game/providers/level_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:vector_math/vector_math.dart' as v;
@@ -33,9 +35,13 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ProviderScope(
+    return ProviderScope(
       child: MaterialApp(
-        home: GerrymanderingGame()
+        themeMode: ThemeMode.dark,
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+        ),
+        home: const GerrymanderingGame()
       ),
     );
   }
@@ -52,47 +58,106 @@ class _GerrymanderingGameState extends State<StatefulWidget> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
+      backgroundColor: Colors.black,
       body: Map()
     );
   }
 }
 
-class Map extends StatefulWidget {
+class Map extends ConsumerStatefulWidget {
   const Map({super.key});
 
   @override
-  State<StatefulWidget> createState() => _MapState();
+  ConsumerState<Map> createState() => _MapState();
 }
 
-class _MapState extends State<StatefulWidget> {
+class _MapState extends ConsumerState<Map> {
   @override
   Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) {
-        return SizedBox(
-          width: double.infinity,
-          height: double.infinity,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Expanded(child: LevelWidget(ref.watch(currentLevelProvider))),
-              MaterialButton(
-                onPressed: () {
-                  ref.read(currentLevelProvider.notifier).generate(Party.democrat, 2);
-                },
-                child: Text("HI"),
-              )
-            ],
-          ),
-        );
-      },
+    return SizedBox(
+      width: double.infinity,
+      height: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: Text(
+                "The Gerry Mander",
+                style: TextStyle(
+                  fontSize: 30
+                ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Sidebar(),
+                  const SizedBox(width: 16),
+                  Flexible(child: LevelWidget(ref.watch(currentLevelProvider))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class LevelWidget extends StatelessWidget {
+class Sidebar extends ConsumerWidget {
+  const Sidebar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDistrict = ref.watch(selectedDistrictProvider);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        for (int i = 0; i < kNumDistricts; i++)
+          FilledButton(
+            onPressed: () {
+              ref.read(selectedDistrictProvider.notifier).state = i;
+            },
+            style: OutlinedButton.styleFrom(
+                backgroundColor: i == selectedDistrict ? Colors.green : Colors.transparent
+            ),
+            child: Text("District ${i+1}"),
+          )
+      ],
+    );
+  }
+}
+
+class LevelWidget extends StatefulWidget {
   final Level level;
   const LevelWidget(this.level, {super.key});
+
+  @override
+  State<LevelWidget> createState() => _LevelWidgetState();
+}
+
+class _LevelWidgetState extends State<LevelWidget> {
+  Offset? pointer;
+
+  void movePointer(Offset? position) {
+    if (position == null) {
+      setState(() => pointer = null);
+      return;
+    }
+
+    RenderBox rb = context.findRenderObject() as RenderBox;
+    final pos = rb.globalToLocal(position);
+
+    setState(() {
+      // Save the position of the cursor when it moves
+      pointer = pos;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,17 +170,136 @@ class LevelWidget extends StatelessWidget {
         final width = c*kMapWidth;
         final height = c*kMapHeight;
 
+        final brushSize = kBrushSize * c;
+
         return SizedBox(
           width: width,
           height: height,
-          child: Center(
-            child: CustomPaint(
-              size: Size(width, height),
-              painter: MapPainter(level),
-            ),
+          child: MouseRegion(
+              cursor: SystemMouseCursors.none,
+              onExit: (event) => movePointer(null),
+              child: Listener(
+                onPointerHover: (event) => movePointer(event.position),
+                onPointerMove: (event) => movePointer(event.position),
+                child: Stack(
+                  children: [
+                    Builder(
+                      builder: (context) {
+                        return ClipRRect(
+                          child: ImageFiltered(
+                            imageFilter: ImageFilter.blur(sigmaX: kMapBlur*c, sigmaY: kMapBlur*c),
+                            enabled: false,
+                            child: CustomPaint(
+                              size: Size(width, height),
+                              painter: MapPainter(widget.level),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+                    if (pointer != null)
+                      Positioned(
+                        left: pointer!.dx - (brushSize/2),
+                        top: pointer!.dy - (brushSize/2),
+                        child: Container(
+                          height: brushSize,
+                          width: brushSize,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.all(Radius.circular(brushSize/2)),
+                            border: Border.all(
+                              width: 2,
+                              color: Colors.white,
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              )
           ),
         );
-      },
+      }
+    );
+  }
+}
+
+class CustomCursor extends StatefulWidget {
+  final Widget child;
+
+  const CustomCursor({required this.child, super.key});
+
+  @override
+  State<CustomCursor> createState() => _CustomCursorState();
+}
+
+class _CustomCursorState extends State<CustomCursor> {
+  Offset? pointer;
+
+  void movePointer(Offset? position) {
+    if (position == null) {
+      setState(() => pointer = null);
+      return;
+    }
+
+    RenderBox rb = context.findRenderObject() as RenderBox;
+    final pos = rb.globalToLocal(position);
+
+    setState(() {
+      // Save the position of the cursor when it moves
+      pointer = pos;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.none,
+      child: Listener(
+        onPointerHover: (event) => movePointer(event.position),
+        onPointerMove: (event) => movePointer(event.position),
+        child: Stack(
+          children: [
+            if (pointer != null)
+              widget.child,
+              Positioned(
+                left: pointer!.dx,
+                top: pointer!.dy,
+                child: Container(
+                  height: 50,
+                  width: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    border: Border.all(
+                      width: 2,
+                      color: Colors.white,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      )
+       // child: GestureDetector(
+       //    child: Icon(
+       //      Icons.add_comment,
+       //      size: 20,
+       //    ),
+       //    onTap: () {},
+       //  ),
+       //  child: Stack(
+       //    children: [
+       //      // widget.child,
+       //      if (position != null)
+       //        AnimatedPositioned(
+       //          duration: const Duration(milliseconds: 100),
+       //          left: position!.dx,
+       //          top: position!.dy,
+       //          child: Container(width: 10, height: 10, color: Colors.red,),
+       //        ),
+       //    ],
+       //  )
     );
   }
 }
@@ -127,7 +311,6 @@ class City {
 }
 
 class MapPainter extends CustomPainter {
-  static final _rand = Random();
   final Level level;
   MapPainter(this.level);
 
@@ -138,21 +321,8 @@ class MapPainter extends CustomPainter {
     // draw tiles
     for (final tile in level.tiles) {
       final paint = Paint()..color = Color.fromARGB(255, (tile.republican*255).round(), 0, (tile.democrat*255).round());
-      canvas.drawRect(Rect.fromLTWH(tile.x * tileSize, tile.y * tileSize, tileSize, tileSize), paint);
+      canvas.drawRect(Rect.fromLTWH(tile.x * tileSize, tile.y * tileSize, tileSize+kMapOverlap, tileSize+kMapOverlap), paint);
     }
-
-    // draw population clusters
-    // final maxPopulation = tiles.map((e) => e.population).reduce(max);
-    // for (final tile in tiles) {
-    //   final color = ((tile.population/maxPopulation)*255).toInt();
-    //   final paint = Paint()..color = Color.fromARGB(255, color, color, color);
-    //   canvas.drawRect(Rect.fromLTWH(tile.x * tileSize, tile.y * tileSize, tileSize, tileSize), paint);
-    // }
-
-    // draw cities
-    // for (final city in cities) {
-    //   canvas.drawCircle(Offset(tileSize * city.position.x, tileSize * city.position.y), city.size*70, Paint()..color = Colors.green);
-    // }
   }
 
   @override
@@ -161,86 +331,3 @@ class MapPainter extends CustomPainter {
   }
 
 }
-
-//hiiiiiiiiii im making the most out of my one comment askskjgkhfkhfshkskhkhgshjksfgk hiiii im so tired no im not done yet dont take it away stop touching my elbow i just wanna write
-// class Map extends PositionComponent {
-//   Map() : super(priority: 1);
-//
-//   static final _paint = Paint()..color = Colors.white;
-//   static final _rand = Random();
-//
-//   late final List<Tile> tiles;
-//   late final List<(Vector2, double)> cities;
-//
-//   @override
-//   void render(Canvas canvas) {
-//     final tileSize = min(size.x/kMapWidth, size.y/kMapHeight);
-//
-//     // canvas.drawRect(size.toRect(), _paint);
-//
-//     // draw tiles
-//     for (final tile in tiles) {
-//       final paint = Paint()..color = Color.fromARGB(255, ((tile.republicans/tile.population)*255).round(), 0, ((tile.democrats/tile.population)*255).round());
-//       canvas.drawRect(Rect.fromLTWH(tile.x * tileSize, tile.y * tileSize, tileSize, tileSize), paint);
-//     }
-//
-//     // draw pop clusters
-//     for (final (loc, s) in cities) {
-//       canvas.drawCircle(Offset(tileSize * kMapWidth * loc.x, tileSize * kMapHeight * loc.y), s*70, _paint);
-//     }
-//   }
-//
-//   @override
-//   void onLoad() {
-//
-//     final numCities = (_rand.nextDouble() * 4 + 10).toInt();
-//     print(numCities);
-//     cities = [
-//       for (var i = 0; i < numCities; i++)
-//         (Vector2.random(_rand), _rand.nextDouble())
-//     ];
-//
-//     tiles = [
-//       for (var x = 0; x < kMapWidth; x++)
-//         for (var y = 0; y < kMapHeight; y++)
-//           () {
-//             return Tile(
-//               x: x,
-//               y: y,
-//               democrats: _rand.nextInt(100),
-//               republicans: _rand.nextInt(100),
-//             );
-//           }()
-//     ];
-//   }
-// }
-//
-// class GerrymanderingGame extends FlameGame {
-//   late Player player;
-//   late Map map;
-//
-//   @override
-//   void render(Canvas canvas) {
-//     super.render(canvas);
-//     map.size = size;
-//   }
-//
-//   @override
-//   void onLoad() {
-//     super.onLoad();
-//
-//     // mouseCursor = SystemMouseCursors.none;
-//
-//     // player = Player()
-//     //   ..position = size / 2
-//     //   ..width = 50
-//     //   ..height = 100
-//     //   ..anchor = Anchor.center;
-//     //
-//     // add(player);
-//
-//     map = Map()..size = size;
-//     add(map);
-//
-//   }
-// }

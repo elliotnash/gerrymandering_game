@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:gerrymandering_game/const.dart';
+import 'package:gerrymandering_game/models/district.dart';
 import 'package:gerrymandering_game/models/level.dart';
 import 'package:gerrymandering_game/models/party.dart';
 import 'package:gerrymandering_game/providers/brush_provider.dart';
@@ -192,7 +193,7 @@ class _LevelWidgetState extends ConsumerState<LevelWidget> {
                 },
                 onPointerPanZoomUpdate: (PointerPanZoomUpdateEvent event) =>
                     ref.read(brushSizeProvider.notifier)
-                        .scroll(event.panDelta.dy*kBrushScrollModifier),
+                        .scroll(event.panDelta.dy*kBrushPanModifier),
                 child: Stack(
                   children: [
                     Builder(
@@ -236,86 +237,6 @@ class _LevelWidgetState extends ConsumerState<LevelWidget> {
   }
 }
 
-class CustomCursor extends StatefulWidget {
-  final Widget child;
-
-  const CustomCursor({required this.child, super.key});
-
-  @override
-  State<CustomCursor> createState() => _CustomCursorState();
-}
-
-class _CustomCursorState extends State<CustomCursor> {
-  Offset? pointer;
-
-  void movePointer(Offset? position) {
-    if (position == null) {
-      setState(() => pointer = null);
-      return;
-    }
-
-    RenderBox rb = context.findRenderObject() as RenderBox;
-    final pos = rb.globalToLocal(position);
-
-    setState(() {
-      // Save the position of the cursor when it moves
-      pointer = pos;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.none,
-      child: Listener(
-        onPointerHover: (event) => movePointer(event.position),
-        onPointerMove: (event) => movePointer(event.position),
-        child: Stack(
-          children: [
-            if (pointer != null)
-              widget.child,
-              Positioned(
-                left: pointer!.dx,
-                top: pointer!.dy,
-                child: Container(
-                  height: 50,
-                  width: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.all(Radius.circular(25)),
-                    border: Border.all(
-                      width: 2,
-                      color: Colors.white,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      )
-       // child: GestureDetector(
-       //    child: Icon(
-       //      Icons.add_comment,
-       //      size: 20,
-       //    ),
-       //    onTap: () {},
-       //  ),
-       //  child: Stack(
-       //    children: [
-       //      // widget.child,
-       //      if (position != null)
-       //        AnimatedPositioned(
-       //          duration: const Duration(milliseconds: 100),
-       //          left: position!.dx,
-       //          top: position!.dy,
-       //          child: Container(width: 10, height: 10, color: Colors.red,),
-       //        ),
-       //    ],
-       //  )
-    );
-  }
-}
-
 class City {
   final v.Vector2 position;
   final double size;
@@ -341,5 +262,27 @@ class MapPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return false;
   }
-
 }
+
+class DistrictPainter extends CustomPainter {
+  // Map<int, District> districts;
+  DistrictPainter(this.districts);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tileSize = min(size.width/kMapWidth, size.height/kMapHeight);
+    //FIXME we can't name stuff Map
+    Map<String, String> test = {"ads": "sd"};
+    // draw tiles
+    // for (final tile in level.tiles) {
+    //   final paint = Paint()..color = Color.fromARGB(255, (tile.republican*255).round(), 0, (tile.democrat*255).round());
+    //   canvas.drawRect(Rect.fromLTWH(tile.x * tileSize, tile.y * tileSize, tileSize+kMapOverlap, tileSize+kMapOverlap), paint);
+    // }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
+  }
+}
+

@@ -6,4 +6,8 @@ const kMapOverlap = 0.5;
 
 const kNumDistricts = 5;
 
-const kBrushSize = 5.0;
+const kDefaultBrushSize = 5.0;
+const kMinBrushSize = 2.0;
+const kMaxBrushSize = 30.0;
+const kBrushScrollModifier = -0.05;
+const kBrushPanModifier = -0.1;

@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:gerrymandering_game/const.dart';
 import 'package:gerrymandering_game/models/level.dart';
 import 'package:gerrymandering_game/models/party.dart';
+import 'package:gerrymandering_game/providers/brush_provider.dart';
 import 'package:gerrymandering_game/providers/district_provider.dart';
 import 'package:gerrymandering_game/providers/level_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -133,15 +135,15 @@ class Sidebar extends ConsumerWidget {
   }
 }
 
-class LevelWidget extends StatefulWidget {
+class LevelWidget extends ConsumerStatefulWidget {
   final Level level;
   const LevelWidget(this.level, {super.key});
 
   @override
-  State<LevelWidget> createState() => _LevelWidgetState();
+  ConsumerState<LevelWidget> createState() => _LevelWidgetState();
 }
 
-class _LevelWidgetState extends State<LevelWidget> {
+class _LevelWidgetState extends ConsumerState<LevelWidget> {
   Offset? pointer;
 
   void movePointer(Offset? position) {
@@ -170,7 +172,8 @@ class _LevelWidgetState extends State<LevelWidget> {
         final width = c*kMapWidth;
         final height = c*kMapHeight;
 
-        final brushSize = kBrushSize * c;
+        final brushSize = ref.watch(brushSizeProvider).round();
+        final cursorSize = brushSize * c;
 
         return SizedBox(
           width: width,
@@ -181,6 +184,15 @@ class _LevelWidgetState extends State<LevelWidget> {
               child: Listener(
                 onPointerHover: (event) => movePointer(event.position),
                 onPointerMove: (event) => movePointer(event.position),
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    ref.read(brushSizeProvider.notifier)
+                        .scroll(event.scrollDelta.dy*kBrushScrollModifier);
+                  }
+                },
+                onPointerPanZoomUpdate: (PointerPanZoomUpdateEvent event) =>
+                    ref.read(brushSizeProvider.notifier)
+                        .scroll(event.panDelta.dy*kBrushScrollModifier),
                 child: Stack(
                   children: [
                     Builder(
@@ -199,13 +211,13 @@ class _LevelWidgetState extends State<LevelWidget> {
                     ),
                     if (pointer != null)
                       Positioned(
-                        left: pointer!.dx - (brushSize/2),
-                        top: pointer!.dy - (brushSize/2),
+                        left: pointer!.dx - (cursorSize/2),
+                        top: pointer!.dy - (cursorSize/2),
                         child: Container(
-                          height: brushSize,
-                          width: brushSize,
+                          height: cursorSize,
+                          width: cursorSize,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.all(Radius.circular(brushSize/2)),
+                            borderRadius: BorderRadius.all(Radius.circular(cursorSize/2)),
                             border: Border.all(
                               width: 2,
                               color: Colors.white,
